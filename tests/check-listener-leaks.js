@@ -58,7 +58,6 @@ assert.ok(!e._events['unlimited'].hasOwnProperty('warned'));
 // process-wide
 events.EventEmitter.defaultMaxListeners = 42;
 e = new events.EventEmitter();
-
 for (var i = 0; i < 42; ++i) {
   e.on('fortytwo', function() {});
 }

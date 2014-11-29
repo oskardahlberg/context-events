@@ -1,26 +1,29 @@
 {
-  "name": "events",
-  "id": "events",
+  "name": "context-events",
+  "id": "context-events",
   "version": "1.0.2",
-  "description": "Node's event emitter for all engines.",
+  "description": "Node's event emitter with optional context argument, like Backbone.",
   "keywords": [
     "events",
     "eventEmitter",
     "eventDispatcher",
     "listeners"
   ],
-  "author": "Irakli Gozalishvili <rfobic@gmail.com> (http://jeditoolkit.com)",
+  "author": "Oskar Dahlberg <oskar.dahlberg@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git://github.com/Gozala/events.git",
-    "web": "https://github.com/Gozala/events"
+    "url": "git://github.com/oskardahlberg/context-events.git",
+    "web": "https://github.com/oskardahlberg/context-events"
   },
   "bugs": {
-    "url": "http://github.com/Gozala/events/issues/"
+    "url": "http://github.com/oskardahlberg/context-events/issues/"
   },
   "main": "./events.js",
   "engines": {
     "node": ">=0.4.x"
+  },
+  "dependencies": {
+    "events": "^1.0.2"
   },
   "devDependencies": {
     "mocha": "~1.21.4",
