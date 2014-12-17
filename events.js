@@ -26,6 +26,74 @@ ContextEmitter.prototype.setMaxListeners = function(n) {
   return this;
 };
 
+ContextEmitter.prototype.emit = function (type) {
+  var er, handler, len, args, i, listeners, contextArgs;
+
+  if (!this._events)
+    this._events = {};
+
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events.error ||
+        (isObject(this._events.error) && !this._events.error.length)) {
+      er = arguments[1];
+      if (er instanceof Error) {
+        throw er; // Unhandled 'error' event
+      }
+      throw TypeError('Uncaught, unspecified "error" event.');
+    }
+  }
+
+  handler = this._events[type];
+
+  if (isUndefined(handler))
+    return false;
+
+  if (isFunction(handler)) {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        if (handler.contextListener) handler.call(this, this);
+        else handler.call(this);
+        return true;
+        break;
+      case 2:
+        if (handler.contextListener) handler.call(this, this, arguments[1]);
+        else handler.call(this, arguments[1]);
+        return true;
+        break;
+      case 3:
+        if (handler.contextListener) handler.call(this, this, arguments[1], arguments[2]);
+        else handler.call(this, arguments[1], arguments[2]);
+        return true;
+        break;
+    }
+  }
+
+  if (isFunction(handler) || isObject(handler)) {
+    len = arguments.length;
+    args = new Array(len - 1);
+    for (i = 1; i < len; i++)
+      args[i - 1] = arguments[i];
+    contextArgs = [ this ].concat(args);
+
+    if (isFunction(handler)) {
+      if (handler.contextListener) handler.apply(this, contextArgs);
+      else handler.apply(this, args);
+    }
+    else {
+      listeners = handler.slice();
+      len = listeners.length;
+      for (i = 0; i < len; i++) {
+        if (listeners[i].contextListener) listeners[i].apply(this, contextArgs);
+        else listeners[i].apply(this, args);
+      }
+    }
+  }
+
+  return true;
+};
+
 ContextEmitter.prototype.addListener = function (type, listener, context) {
   var m;
 
