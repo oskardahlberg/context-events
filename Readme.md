@@ -26,7 +26,8 @@ See the [node.js event emitter docs](http://nodejs.org/api/events.html)
 All context arguments are optional
 
 ### addListener / on / once (type, listener, context)
-Set the contex the listener will be called from it
+Set the context the listener will be called from it
+The first argument in the callback will be the callee
 
 ### removeListener (type, listener, context)
 Remove a listener added with a context
