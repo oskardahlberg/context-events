@@ -1,145 +1,154 @@
 // EventEmitter with optional context argument, backwards compatible
-// tried to patch it, should have done it properly, it turned out a bit hacky
-// but works well
 
-var util = require('util');
-var EventEmitter = require('events').EventEmitter;
 
-var ContextEmitter = module.exports = function ContextEmitter () {
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+var EventEmitter = module.exports = function EventEmitter () {
   this._events = this._events || {};
   this._maxListeners = this._maxListeners || undefined;
 };
 
-util.inherits(ContextEmitter, EventEmitter);
+EventEmitter.EventEmitter = EventEmitter;
 
-ContextEmitter.EventEmitter = ContextEmitter;
+// By default EventEmitters will print a warning if more than 10 listeners are
+// added to it. This is a useful default which helps finding memory leaks.
+EventEmitter.defaultMaxListeners = 10;
 
-ContextEmitter.prototype._events = undefined;
-ContextEmitter.prototype._maxListeners = undefined;
-
-ContextEmitter.defaultMaxListeners = 10;//EventEmitter.defaultMaxListeners;
-
-ContextEmitter.prototype.setMaxListeners = function(n) {
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+EventEmitter.prototype.setMaxListeners = function (n) {
   if (!isNumber(n) || n < 0 || isNaN(n))
     throw TypeError('n must be a positive number');
   this._maxListeners = n;
   return this;
 };
 
-ContextEmitter.prototype.emit = function (type) {
-  var er, handler, len, args, i, listeners, contextArgs;
-
-  if (!this._events)
-    this._events = {};
+EventEmitter.prototype.emit = function (type) {
+  var er, handler, len, args, i, listeners;
 
   // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events.error ||
-        (isObject(this._events.error) && !this._events.error.length)) {
-      er = arguments[1];
-      if (er instanceof Error) {
-        throw er; // Unhandled 'error' event
-      }
-      throw TypeError('Uncaught, unspecified "error" event.');
-    }
+  if (type === 'error' &&
+      (!this._events || !this._events.error ||
+      (isObject(this._events.error) && !this._events.error.length))) {
+
+    if (arguments[1] instanceof Error) throw arguments[1];
+    throw TypeError('Uncaught, unspecified "error" event.');
   }
 
-  handler = this._events[type];
+  if (!this._events) return false;
 
-  if (isUndefined(handler))
-    return false;
+  var handler = this._events[type];
 
-  if (isFunction(handler)) {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        if (handler.contextListener) handler.call(this, this);
-        else handler.call(this);
-        return true;
-        break;
-      case 2:
-        if (handler.contextListener) handler.call(this, this, arguments[1]);
-        else handler.call(this, arguments[1]);
-        return true;
-        break;
-      case 3:
-        if (handler.contextListener) handler.call(this, this, arguments[1], arguments[2]);
-        else handler.call(this, arguments[1], arguments[2]);
-        return true;
-        break;
-    }
-  }
+  if (!handler ||
+      isObject(handler) && handler.length == 0) return false;
 
-  if (isFunction(handler) || isObject(handler)) {
-    len = arguments.length;
-    args = new Array(len - 1);
-    for (i = 1; i < len; i++)
-      args[i - 1] = arguments[i];
-    contextArgs = [ this ].concat(args);
+  var length = arguments.length;
 
-    if (isFunction(handler)) {
-      if (handler.contextListener) handler.apply(this, contextArgs);
-      else handler.apply(this, args);
+  // fast cases
+  if (isFunction(handler) && length <= 3) {
+    // call with context as first argument
+    if (handler.hasOwnProperty('context')) {
+      console.log('asdasd')
+      if (length == 1) handler.call(null, this);
+      if (length == 2) handler.call(null, this, arguments[1]);
+      if (length == 3) handler.call(null, this, arguments[1], arguments[2]);
     }
     else {
-      listeners = handler.slice();
-      len = listeners.length;
-      for (i = 0; i < len; i++) {
-        if (listeners[i].contextListener) listeners[i].apply(this, contextArgs);
-        else listeners[i].apply(this, args);
-      }
+      if (length == 1) handler.call(this);
+      if (length == 2) handler.call(this, arguments[1]);
+      if (length == 3) handler.call(this, arguments[1], arguments[2]);    
     }
+
+    return true;
+  }
+
+  var args = new Array(length - 1);
+  for (var i = 1; i < length; i++) args[i-1] = arguments[i];
+  var contextArgs = [ this ].concat(args);
+
+  if (isFunction(handler)) {
+    if (handler.hasOwnProperty('context')) handler.apply(null, contextArgs);
+    else handler.apply(this, args);
+    return true;
+  }
+
+  var listeners = handler.slice();
+
+  for (var i in listeners) {
+    if (listeners[i].hasOwnProperty('context')) listeners.apply(null, contextArgs);
+    else listeners[i].apply(this, args);    
   }
 
   return true;
 };
 
-ContextEmitter.prototype.addListener = function (type, listener, context) {
-  var m;
-
+EventEmitter.prototype.addListener = function (type, listener, context) {
   if (!isFunction(listener))
     throw TypeError('listener must be a function');
 
-  if (arguments.length == 3) {
-    var contextListener = listener.bind(context);
-    contextListener.contextListener = listener;
-    contextListener.context = context;
-    listener = contextListener;
+  if (!this._events) this._events = {};
+
+  if (arguments.length > 2) {
+    var bound = listener.bind(context);
+    bound.context = context;
+    bound.original = listener;
+    listener = bound;
   }
 
-  if (!this._events)
-    this._events = {};
-
   // To avoid recursion in the case that type === "newListener"! Before
-  // adding it to the listeners, first emit "newListener".
-  if (this._events.newListener)
-    this.emit('newListener', type,
-              isFunction(listener.listener) ?
-              listener.listener : listener);
+  // adding it to the listeners, first emit "newListener"
+  var original = isFunction(listener.original) ? listener.original : listener;
+  if (this._events.newListener) {
+    console.log('emitting', type, original, context)
+    if (arguments.length > 2)
+      this.emit('newListener', type, original, context);
+    else
+      this.emit('newListener', type, original);
+  }
 
+  // Optimize the case of one listener. Don't need the extra array object.
   if (!this._events[type])
-    // Optimize the case of one listener. Don't need the extra array object.
     this._events[type] = listener;
+  // If we've already got an array, just append.
   else if (isObject(this._events[type]))
-    // If we've already got an array, just append.
     this._events[type].push(listener);
+  // Adding the second element, need to change to array.
   else
-    // Adding the second element, need to change to array.
     this._events[type] = [this._events[type], listener];
 
   // Check for listener leak
   if (isObject(this._events[type]) && !this._events[type].warned) {
+    var max;
     if (!isUndefined(this._maxListeners)) {
-      m = this._maxListeners;
-    } else {
-
-      // This is a bad pattern that i feel forced to continue
-      // But i guess i have introduced some new :D
-      // a complete rewrite might be due
-      m = ContextEmitter.defaultMaxListeners;
+      max = this._maxListeners;
+    }
+    else if (this.constructor && !isUndefined(this.constructor.defaultMaxListeners)) {
+      max = this.constructor.defaultMaxListeners;
+    }
+    else {
+      max = EventEmitter.defaultMaxListeners;
     }
 
-    if (m && m > 0 && this._events[type].length > m) {
+    if (max && max > 0 && this._events[type].length > max) {
       this._events[type].warned = true;
       console.error('(node) warning: possible EventEmitter memory ' +
                     'leak detected. %d listeners added. ' +
@@ -155,86 +164,190 @@ ContextEmitter.prototype.addListener = function (type, listener, context) {
   return this;
 };
 
-ContextEmitter.prototype.on = ContextEmitter.prototype.addListener;
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
 
-ContextEmitter.prototype.once = function (type, listener, context) {
-  if (arguments.length == 2)
-    return EventEmitter.prototype.once.call(this, type, listener);
+EventEmitter.prototype.once = function (type, listener, context) {
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
 
   var fired = false;
-  function g() {
-    this.removeListener(type, g);
+  var temp = function () {
+    this.removeListener(type, temp);
 
     if (!fired) {
       fired = true;
-      listener.apply(context, arguments);
+      listener.apply(this, arguments);
     }
+  };
+
+  if (arguments.length > 2) {
+    temp = temp.bind(context);
+    temp.context = context;
   }
-  g.contextListener = listener;
-  g.context = context;
-  this.on(type, g);
+
+  temp.original = listener;
+  this.on(type, temp);
 
   return this;
 };
 
-ContextEmitter.prototype.removeListener = function (type, listener, context) {
-  var remove = EventEmitter.prototype.removeListener;
-  var events = this._events;
-  if (arguments.length == 2 || !events || !events[type])
-    return remove.call(this, type, listener);
+// emits a 'removeListener' event if the listener was removed
+EventEmitter.prototype.removeListener = function (type, listener, context) {
+  var list, position, length, i;
 
-  if (events[type] instanceof Array) {
-    for (var i in events[type]) {
-      if (events[type][i].contextListener === listener &&
-          events[type][i].context === context) {
-        return remove.call(this, type, events[type][i]);
-      }
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events || !this._events[type])
+    return this;
+
+  var handler = this._events[type];
+
+  if (isFunction(handler)) {
+    if (!hasListener(handler, listener) ||
+        arguments.length <= 2 && handler.hasOwnProperty('context') || 
+        arguments.length > 2 && !hasContext(handler[i], context)) {
+    return this;
+  }
+    delete this._events[type];
+  }
+  else {
+    var position;
+    for (var i = 0; i < handler.length; i++) {
+      if (arguments.length <= 2 && handler[i].hasOwnProperty('context') || 
+          arguments.length > 2 && !hasContext(handler[i], context)) continue;
+      if (hasListener(handler[i], listener)) {
+        position = i;
+        break;
+      }    
+    }
+
+    if (position == null) return this;
+
+    if (handler.length === 1) delete this._events[type];
+    else handler.splice(position, 1);
+  }
+
+  if (this._events.removeListener) {
+    if (arguments.length > 2)
+      this.emit('removeListener', type, listener, context);
+    else
+      this.emit('removeListener', type, listener);
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function (type, context) {
+  if (!this._events) return this;
+
+  // not listening for removeListener, no need to emit
+  if (!this._events.removeListener && arguments.length < 2) {
+    if (arguments.length === 0) this._events = {};
+    else if (this._events[type]) delete this._events[type];
+    return this;
+  }
+
+  // emit removeListener for all listeners on all events
+  if (arguments.length === 0) {
+    for (var key in this._events) {
+      if (key === 'removeListener') continue;
+      this.removeAllListeners(key);
+    }
+    this.removeAllListeners('removeListener');
+    delete this._events;
+    return this;
+  }
+
+  if (arguments.length > 1 && type == null) {
+    for (var key in this._events) this.removeAllListeners(key, context);
+    return this;
+  }
+
+  var handler = this._events[type];
+
+  if (isFunction(handler)) {
+    if (arguments.length > 1) {
+      if (!hasContext(handler, context)) return this;
+      this.removeListener(type, handler, context);
+    }
+    else {
+      if (handler.hasOwnProperty('context')) return this;
+      this.removeListener(type, handler);
     }
   }
   else {
-    if (events[type].contextListener === listener &&
-        events[type].context === context) {
-      return remove.call(this, type, events[type]);
-    }
-  }
-
-  return this;
-};
-
-ContextEmitter.prototype.removeAllListeners = function (type, context) {
-  var remove = EventEmitter.prototype.removeListener;
-  var events = this._events;
-  if (arguments.length < 2 || !events || (type && !events[type]))
-    return EventEmitter.prototype.removeAllListeners.apply(this, arguments);
-
-  if (!type) {
-    for (var type in events) this.removeAllListeners(type, context);
-  }
-  else if (events[type] instanceof Array) {
-    for (var i in events[type]) {
-      if (events[type][i].context === context) {
-        remove.call(this, type, events[type][i]);
+    var listeners = handler.slice();
+    for (var i = listeners.length - 1; i >= 0; i--) {
+      if (arguments.length > 1) {
+        if (!hasContext(listeners[i], context)) continue;
+        this.removeListener(type, listeners[i], context);
+      }
+      else {
+        if (listeners[i].hasOwnProperty('context')) continue;
+        this.removeListener(type, listeners[i]);
       }
     }
   }
-  else {
-    if (events[type].context === context) {
-      remove.call(this, type, events[type]);
-    }
-  }
 
   return this;
 };
 
-function isFunction(arg) {
+EventEmitter.prototype.listeners = function (type, context) {
+  if (arguments.length > 1 && type == null) {
+    var result = [];
+    for (var key in this._events) {
+      result = result.concat(this.listeners(key, context));
+    }
+    return result;
+  }
+
+  var handler;
+  if (!this._events || !this._events[type]) handler = [];
+  else if (isFunction(this._events[type])) handler = [this._events[type]];
+  else handler = this._events[type].slice();
+
+  if (arguments.length < 2) return handler;
+
+  var result = [];
+  for (var i = 0; i < handler.length; i++) {
+    if (hasContext(handler[i], context)) result.push(handler[i].original);
+  }
+  return result;
+};
+
+// this is weird ? keeping for legacy
+EventEmitter.listenerCount = function (emitter, type) {
+  var result;
+  if (!emitter._events || !emitter._events[type])
+    result = 0;
+  else if (isFunction(emitter._events[type]))
+    result = 1;
+  else
+    result = emitter._events[type].length;
+  return result;
+};
+
+function hasListener (handler, listener) {
+  return (
+    handler === listener ||
+    isFunction(handler.original) && handler.original === listener
+  );
+};
+
+function hasContext (handler, context) {
+  return handler.hasOwnProperty('context') && handler.context === context;
+};
+
+function isFunction (arg) {
   return typeof arg === 'function';
 };
 
-function isNumber(arg) {
+function isNumber (arg) {
   return typeof arg === 'number';
 };
 
-function isObject(arg) {
+function isObject (arg) {
   return typeof arg === 'object' && arg !== null;
 };
 

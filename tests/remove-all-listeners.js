@@ -38,7 +38,6 @@ function expect(expected) {
 
   function listener(name) {
     actual.push(name)
-    console.log(2222222, actual, expected)
   }
   return common.mustCall(listener, expected.length);
 }
