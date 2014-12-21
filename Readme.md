@@ -1,9 +1,11 @@
 # context-events
 
 Node's event emitter with optional context argument, like Backbone.
-Inherits from
-https://github.com/Gozala/events
-and should be fully backwords compatible since it calls most of the original code.
+
+Forked from https://github.com/Gozala/events
+
+Use require('context-events/monkey') to get a patched version of the original Events.
+Should be fully backwords compatible, only acts differently when given context argument.
 
 ## Install ##
 

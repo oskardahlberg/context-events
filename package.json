@@ -1,7 +1,7 @@
 {
   "name": "context-events",
   "id": "context-events",
-  "version": "1.0.3",
+  "version": "0.0.1",
   "description": "Node's event emitter with optional context argument, like Backbone.",
   "keywords": [
     "events",
