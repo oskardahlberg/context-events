@@ -43,8 +43,6 @@ EventEmitter.prototype.setMaxListeners = function (n) {
 };
 
 EventEmitter.prototype.emit = function (type) {
-  var er, handler, len, args, i, listeners;
-
   // If there is no 'error' event listener then throw.
   if (type === 'error' &&
       (!this._events || !this._events.error ||
@@ -67,7 +65,6 @@ EventEmitter.prototype.emit = function (type) {
   if (isFunction(handler) && length <= 3) {
     // call with context as first argument
     if (handler.hasOwnProperty('context')) {
-      console.log('asdasd')
       if (length == 1) handler.call(null, this);
       if (length == 2) handler.call(null, this, arguments[1]);
       if (length == 3) handler.call(null, this, arguments[1], arguments[2]);
@@ -94,7 +91,7 @@ EventEmitter.prototype.emit = function (type) {
   var listeners = handler.slice();
 
   for (var i in listeners) {
-    if (listeners[i].hasOwnProperty('context')) listeners.apply(null, contextArgs);
+    if (listeners[i].hasOwnProperty('context')) listeners[i].apply(null, contextArgs);
     else listeners[i].apply(this, args);    
   }
 
@@ -206,7 +203,7 @@ EventEmitter.prototype.removeListener = function (type, listener, context) {
   if (isFunction(handler)) {
     if (!hasListener(handler, listener) ||
         arguments.length <= 2 && handler.hasOwnProperty('context') || 
-        arguments.length > 2 && !hasContext(handler[i], context)) {
+        arguments.length > 2 && !hasContext(handler, context)) {
     return this;
   }
     delete this._events[type];
