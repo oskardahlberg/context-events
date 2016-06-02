@@ -1,5 +1,10 @@
 # context-events
 
+---
+God bless arrow functions! The need for this is nil in a post-es2015 world
+---
+
+
 Node's event emitter with optional context argument, like Backbone.
 
 Forked from https://github.com/Gozala/events
